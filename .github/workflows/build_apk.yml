@@ -1,0 +1,99 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.16.0'
+        channel: 'stable'
+
+    - name: Create Flutter App Wrapper
+      run: |
+        # إنشاء مشروع فلاتر جديد
+        flutter create my_app
+        
+        # إعداد المكتبات المطلوبة
+        cd my_app
+        flutter pub add webview_flutter
+        
+        # تفعيل الـ Assets
+        sed -i 's/# assets:/assets:/' pubspec.yaml
+        sed -i 's/#   - images\/a_dot_burr.jpeg/  - assets\/www\//' pubspec.yaml
+        
+        # إنشاء مجلد للملفات
+        mkdir -p assets/www
+        cd ..
+
+    - name: Move Web Files to Flutter Assets
+      run: |
+        # نقل كل ملفات الموقع (ما عدا ملفات فلاتر الجديدة) إلى داخل التطبيق
+        # نستثني المجلد my_app والمجلد المخفي .github والملفات المخفية
+        find . -maxdepth 1 -not -name 'my_app' -not -name '.git' -not -name '.github' -not -name '.' -exec cp -r {} my_app/assets/www/ \;
+
+    - name: Write Main Code (WebView)
+      run: |
+        cd my_app/lib
+        # حذف الكود القديم وكتابة كود الـ WebView
+        cat > main.dart <<EOF
+        import 'package:flutter/material.dart';
+        import 'package:webview_flutter/webview_flutter.dart';
+        import 'package:flutter/services.dart' show rootBundle;
+
+        void main() {
+          runApp(const MaterialApp(debugShowCheckedModeBanner: false, home: LocalWebView()));
+        }
+
+        class LocalWebView extends StatefulWidget {
+          const LocalWebView({super.key});
+          @override
+          State<LocalWebView> createState() => _LocalWebViewState();
+        }
+
+        class _LocalWebViewState extends State<LocalWebView> {
+          late final WebViewController _controller;
+          @override
+          void initState() {
+            super.initState();
+            _controller = WebViewController()
+              ..setJavaScriptMode(JavaScriptMode.unrestricted)
+              ..setBackgroundColor(const Color(0x00000000));
+            _loadHtml();
+          }
+
+          _loadHtml() async {
+            String fileText = await rootBundle.loadString('assets/www/index.html');
+            _controller.loadHtmlString(fileText);
+          }
+
+          @override
+          Widget build(BuildContext context) {
+            return Scaffold(
+              body: SafeArea(child: WebViewWidget(controller: _controller)),
+            );
+          }
+        }
+        EOF
+
+    - name: Build APK
+      run: |
+        cd my_app
+        # إضافة إذن الإنترنت احتياطياً
+        sed -i 's/<manifest xmlns:android/<manifest xmlns:android="http:\/\/schemas.android.com\/apk\/res\/android" package="com.example.my_app">\n    <uses-permission android:name="android.permission.INTERNET"\/>/' android/app/src/main/AndroidManifest.xml
+        flutter build apk --release
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: app-release
+        path: my_app/build/app/outputs/flutter-apk/app-release.apk
+
