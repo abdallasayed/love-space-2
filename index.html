@@ -1,0 +1,83 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LoverChat - عالم المحبين</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Uploadcare -->
+  <script>
+    UPLOADCARE_PUBLIC_KEY = '8e2cb6a00c4b7dd45f95';
+    UPLOADCARE_LOCALE = 'ar';
+    UPLOADCARE_TABS = 'file camera facebook instagram';
+  </script>
+  <script src="https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #e11d48; /* Rose 600 */
+    }
+    body {
+      font-family: 'Cairo', sans-serif;
+      background-color: #f8fafc; /* Slate 50 */
+      color: #1e293b;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .uploadcare--widget__button_type_open {
+      background-color: var(--primary) !important;
+      color: white !important;
+      border-radius: 9999px !important;
+      padding: 8px 16px !important;
+      font-family: 'Cairo', sans-serif !important;
+      font-weight: 700 !important;
+    }
+    /* Hide scrollbar */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* Smooth animations */
+    .fade-enter { opacity: 0; transform: translateY(10px); }
+    .fade-enter-active { opacity: 1; transform: translateY(0); transition: opacity 300ms, transform 300ms; }
+    
+    /* Mobile optimization */
+    input, textarea, button { font-family: 'Cairo', sans-serif; }
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "firebase/": "https://esm.sh/firebase@^12.8.0/",
+    "react-dom": "https://esm.sh/react-dom@^19.2.3"
+  }
+}
+</script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+  <script>
+    window.addEventListener('load', () => {
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>
