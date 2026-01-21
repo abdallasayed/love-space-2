@@ -11,6 +11,23 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    # --- الخطوة الجديدة: تجهيز وطبخ React ---
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Build React App
+      run: |
+        # تثبيت المكتبات
+        npm install
+        
+        # محاولة البناء باستخدام Vite مع ضبط المسارات لتكون نسبية (مهم جداً للتطبيقات Offline)
+        # هذا الأمر سيحول ملفات tsx إلى html/js عادي في مجلد dist
+        npx vite build --base=./ || npm run build
+        
+    # ---------------------------------------
+
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
@@ -19,38 +36,39 @@ jobs:
 
     - name: Create Flutter App Wrapper
       run: |
-        # إنشاء مشروع فلاتر جديد
         flutter create my_app
-        
         cd my_app
-        
-        # إعداد المكتبات المطلوبة
         flutter pub add webview_flutter
         
         # تفعيل الـ Assets
         sed -i 's/# assets:/assets:/' pubspec.yaml
         sed -i 's/#   - images\/a_dot_burr.jpeg/  - assets\/www\//' pubspec.yaml
         
-        # --- تصحيح خطأ SDK 34 ---
-        # نقوم بتغيير compileSdkVersion من القيمة الافتراضية إلى 34
+        # تصحيح إصدار SDK للأندرويد
         sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle
-        # -----------------------
-
-        # إنشاء مجلد للملفات
+        
         mkdir -p assets/www
         cd ..
 
-    - name: Move Web Files to Flutter Assets
+    - name: Move Built Files to Flutter Assets
       run: |
-        find . -maxdepth 1 -not -name 'my_app' -not -name '.git' -not -name '.github' -not -name '.' -exec cp -r {} my_app/assets/www/ \;
+        # هنا التغيير: ننسخ الوجبة الجاهزة (dist) بدلاً من المكونات الخام
+        # عادة في React/Vite المجلد يكون اسمه dist أو build
+        if [ -d "dist" ]; then
+          cp -r dist/* my_app/assets/www/
+        elif [ -d "build" ]; then
+          cp -r build/* my_app/assets/www/
+        else
+          echo "Error: Could not find build folder (dist or build)"
+          exit 1
+        fi
 
-    - name: Write Main Code (WebView)
+    - name: Write Main Code (Fixed Path)
       run: |
         cd my_app/lib
         cat > main.dart <<INNEREOF
         import 'package:flutter/material.dart';
         import 'package:webview_flutter/webview_flutter.dart';
-        import 'package:flutter/services.dart' show rootBundle;
 
         void main() {
           runApp(const MaterialApp(debugShowCheckedModeBanner: false, home: LocalWebView()));
@@ -64,28 +82,33 @@ jobs:
 
         class _LocalWebViewState extends State<LocalWebView> {
           late final WebViewController _controller;
+
           @override
           void initState() {
             super.initState();
+            
             _controller = WebViewController()
               ..setJavaScriptMode(JavaScriptMode.unrestricted)
-              ..setBackgroundColor(const Color(0x00000000));
-            _loadHtml();
-          }
+              ..setBackgroundColor(const Color(0xFFFFFFFF))
+              ..setNavigationDelegate(
+                NavigationDelegate(
+                  onWebResourceError: (WebResourceError error) {
+                    debugPrint('Web Error: ${error.description}');
+                  },
+                ),
+              );
 
-          _loadHtml() async {
-            try {
-              String fileText = await rootBundle.loadString('assets/www/index.html');
-              _controller.loadHtmlString(fileText);
-            } catch (e) {
-              debugPrint("Error loading HTML: $e");
-            }
+            // تحميل ملف index.html من المجلد الذي تم بناؤه
+            _controller.loadRequest(Uri.parse('file:///android_asset/flutter_assets/assets/www/index.html'));
           }
 
           @override
           Widget build(BuildContext context) {
             return Scaffold(
-              body: SafeArea(child: WebViewWidget(controller: _controller)),
+              backgroundColor: Colors.white, 
+              body: SafeArea(
+                child: WebViewWidget(controller: _controller),
+              ),
             );
           }
         }
@@ -94,13 +117,11 @@ jobs:
     - name: Build APK
       run: |
         cd my_app
-        # إضافة إذن الإنترنت
         sed -i 's/<manifest xmlns:android/<manifest xmlns:android="http:\/\/schemas.android.com\/apk\/res\/android" package="com.example.my_app">\n    <uses-permission android:name="android.permission.INTERNET"\/>/' android/app/src/main/AndroidManifest.xml
-        
         flutter build apk --release
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: app-release
+        name: app-release-react-fixed
         path: my_app/build/app/outputs/flutter-apk/app-release.apk
