@@ -11,7 +11,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    # --- الخطوة الجديدة: تجهيز وطبخ React ---
+    # --- تجهيز وبناء React ---
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
@@ -19,15 +19,11 @@ jobs:
 
     - name: Build React App
       run: |
-        # تثبيت المكتبات
         npm install
-        
-        # محاولة البناء باستخدام Vite مع ضبط المسارات لتكون نسبية (مهم جداً للتطبيقات Offline)
-        # هذا الأمر سيحول ملفات tsx إلى html/js عادي في مجلد dist
+        # محاولة البناء، إذا فشل vite نجرب السكربت العادي
         npx vite build --base=./ || npm run build
-        
-    # ---------------------------------------
 
+    # --- تجهيز Flutter ---
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
@@ -52,21 +48,21 @@ jobs:
 
     - name: Move Built Files to Flutter Assets
       run: |
-        # هنا التغيير: ننسخ الوجبة الجاهزة (dist) بدلاً من المكونات الخام
-        # عادة في React/Vite المجلد يكون اسمه dist أو build
+        # نسخ ملفات الـ Build (dist أو build)
         if [ -d "dist" ]; then
           cp -r dist/* my_app/assets/www/
         elif [ -d "build" ]; then
           cp -r build/* my_app/assets/www/
         else
-          echo "Error: Could not find build folder (dist or build)"
+          echo "Error: Could not find build folder"
           exit 1
         fi
 
-    - name: Write Main Code (Fixed Path)
+    - name: Write Main Code (Fixed)
       run: |
         cd my_app/lib
-        cat > main.dart <<INNEREOF
+        # لاحظ هنا استخدام علامات التنصيص المفردة حول INNEREOF لمنع الخطأ
+        cat > main.dart <<'INNEREOF'
         import 'package:flutter/material.dart';
         import 'package:webview_flutter/webview_flutter.dart';
 
@@ -98,7 +94,6 @@ jobs:
                 ),
               );
 
-            // تحميل ملف index.html من المجلد الذي تم بناؤه
             _controller.loadRequest(Uri.parse('file:///android_asset/flutter_assets/assets/www/index.html'));
           }
 
@@ -123,5 +118,5 @@ jobs:
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: app-release-react-fixed
+        name: app-release-final
         path: my_app/build/app/outputs/flutter-apk/app-release.apk
